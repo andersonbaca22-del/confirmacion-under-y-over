@@ -1,6 +1,5 @@
 # ==============================================================
 # AUDITORÍA INDEPENDIENTE: Under/Over y Dixon-Coles
-# Ejecutar en consola: python poisson_under_over.py
 # ==============================================================
 
 import math
@@ -56,7 +55,7 @@ def verificar_consistencia(lam_h, lam_a, line=2.5, rho=0.0, tolerancia=0.01):
     simple = under_over_simple(lam_h, lam_a, line)
     diff = abs(matriz["over"] - simple["over"])
 
-    print(f"==================================================")
+    print(f"\n==================================================")
     print(f"🔎 AUDITORÍA DE PARTIDO (Línea: {line} | Rho: {rho})")
     print(f"==================================================")
     print(f"λ Local: {lam_h:.3f} | λ Visitante: {lam_a:.3f} | λ Total: {matriz['lambda_total']:.3f}")
@@ -80,10 +79,18 @@ def verificar_consistencia(lam_h, lam_a, line=2.5, rho=0.0, tolerancia=0.01):
     print("==================================================\n")
 
 if __name__ == "__main__":
-    # EJEMPLO DE CONSULTA RÁPIDA:
-    # Simplemente cambia estos valores con los lambdas que te de Streamlit
-    lam_local_ejemplo = 1.822
-    lam_visitante_ejemplo = 1.043
+    print("--- AUDITORÍA MANUAL DE POISSON & DIXON-COLES ---")
+    
+    # Entrada manual por consola
+    lam_local_ejemplo = float(input("Ingresa el lambda (λ) local: "))
+    lam_visitante_ejemplo = float(input("Ingresa el lambda (λ) visitante: "))
+    linea_ingresada = float(input("Ingresa la línea de goles (ej. 2.5): "))
+    rho_ingresado = float(input("Ingresa el valor de rho para Dixon-Coles (ej. -0.15 o 0.0 para ignorar): "))
+    
+    print("\nCalculando...")
+    
+    # Ejecutar verificación con los datos ingresados
+    verificar_consistencia(lam_local_ejemplo, lam_visitante_ejemplo, line=linea_ingresada, rho=rho_ingresado)
     
     # Prueba sin corrección (Poisson puro)
     verificar_consistencia(lam_local_ejemplo, lam_visitante_ejemplo, line=2.5, rho=0.0)
