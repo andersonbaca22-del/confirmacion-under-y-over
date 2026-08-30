@@ -1,8 +1,14 @@
-# ==============================================================
-# AUDITORÍA INDEPENDIENTE: Under/Over y Dixon-Coles
-# ==============================================================
-
+import streamlit as st
 import math
+
+# Configuración de la página
+st.set_page_config(page_title="Auditoría Under/Over & Dixon-Coles", layout="centered")
+st.title("🔎 Auditoría Independiente: Under/Over & Dixon-Coles")
+st.caption("Herramienta consultiva para verificar probabilidades de Poisson sin modificar tu modelo principal.")
+
+# --------------------------------------------------------------
+# FUNCIONES MATEMÁTICAS
+# --------------------------------------------------------------
 
 def poisson_pmf(k, lam):
     """P(X = k) para X ~ Poisson(lam)"""
@@ -50,49 +56,58 @@ def under_over_simple(lam_h, lam_a, line=2.5):
     over = 1 - under
     return {"lambda_total": lam_total, "under": under, "over": over}
 
-def verificar_consistencia(lam_h, lam_a, line=2.5, rho=0.0, tolerancia=0.01):
-    matriz = under_over(lam_h, lam_a, line, rho)
-    simple = under_over_simple(lam_h, lam_a, line)
+
+# --------------------------------------------------------------
+# INTERFAZ DE USUARIO (STREAMLIT)
+# --------------------------------------------------------------
+
+with st.form("form_auditoria"):
+    st.subheader("Parámetros del Partido")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        lam_local = st.number_input("Lambda (λ) Local", min_value=0.1, value=1.50, step=0.01)
+    with col2:
+        lam_visitante = st.number_input("Lambda (λ) Visitante", min_value=0.1, value=1.20, step=0.01)
+        
+    col3, col4 = st.columns(2)
+    with col3:
+        linea_goles = st.selectbox("Línea de Goles", [1.5, 2.5, 3.5, 4.5], index=1)
+    with col4:
+        rho_val = st.slider("Parámetro Rho (Dixon-Coles)", min_value=-0.3, max_value=0.0, value=-0.15, step=0.01)
+        
+    submitted = st.form_submit_button("Ejecutar Auditoría", type="primary")
+
+if submitted:
+    # Calcular resultados
+    matriz = under_over(lam_local, lam_visitante, line=linea_goles, rho=rho_val)
+    simple = under_over_simple(lam_local, lam_visitante, line=linea_goles)
     diff = abs(matriz["over"] - simple["over"])
 
-    print(f"\n==================================================")
-    print(f"🔎 AUDITORÍA DE PARTIDO (Línea: {line} | Rho: {rho})")
-    print(f"==================================================")
-    print(f"λ Local: {lam_h:.3f} | λ Visitante: {lam_a:.3f} | λ Total: {matriz['lambda_total']:.3f}")
-    print(f"--------------------------------------------------")
-    print(f"[Matriz] Under: {matriz['under']*100:.2f}%  |  Over: {matriz['over']*100:.2f}%")
-    print(f"[Simple] Under: {simple['under']*100:.2f}%  |  Over: {simple['over']*100:.2f}%")
-    print(f"Suma total de la matriz: {matriz['suma_probabilidades']*100:.4f}% (ideal ~100%)")
-    print(f"Diferencia entre métodos: {diff*100:.4f}%")
+    st.divider()
+    st.subheader("📊 Resultados de la Auditoría")
     
-    if diff > tolerancia:
-        print(f"⚠️ ALERTA: Desviación notable detectada (>1%).")
-    else:
-        print(f"✅ Coherente (sin inflación anómala por matriz).")
-    print("--------------------------------------------------")
-    
-    # Top 5 marcadores
-    top_marcadores = sorted(matriz["grid"].items(), key=lambda x: -x[1])[:5]
-    print("Top 5 Marcadores Probables:")
-    for (i, j), p in top_marcadores:
-        print(f"  {i} - {j}: {p*100:.2f}%")
-    print("==================================================\n")
+    # Métricas principales de Under / Over
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("λ Total", f"{matriz['lambda_total']:.3f}")
+    col_b.metric(f"Under {linea_goles}", f"{matriz['under']*100:.2f}%", f"Simple: {simple['under']*100:.2f}%")
+    col_c.metric(f"Over {linea_goles}", f"{matriz['over']*100:.2f}%", f"Simple: {simple['over']*100:.2f}%")
 
-if __name__ == "__main__":
-    print("--- AUDITORÍA MANUAL DE POISSON & DIXON-COLES ---")
+    # Validación de sanidad
+    if diff > 0.01:
+        st.warning(f"⚠️ Alerta: Desviación notable de {diff*100:.2f}% entre la matriz y el método simple.")
+    else:
+        st.success(f"✅ Coherente: Diferencia mínima de {diff*100:.4f}% entre métodos. Suma total de matriz: {matriz['suma_probabilidades']*100:.2f}%")
+
+    # Top marcadores
+    st.subheader("🎯 Top 5 Marcadores Más Probables")
+    top_marcadores = sorted(matriz["grid"].items(), key=lambda x: -x[1])[:5]
     
-    # Entrada manual por consola
-    lam_local_ejemplo = float(input("Ingresa el lambda (λ) local: "))
-    lam_visitante_ejemplo = float(input("Ingresa el lambda (λ) visitante: "))
-    linea_ingresada = float(input("Ingresa la línea de goles (ej. 2.5): "))
-    rho_ingresado = float(input("Ingresa el valor de rho para Dixon-Coles (ej. -0.15 o 0.0 para ignorar): "))
+    tabla_datos = []
+    for (i, j), p in top_marcadores:
+        tabla_datos.append({"Marcador": f"{i} - {j}", "Probabilidad": f"{p*100:.2f}%"})
     
-    print("\nCalculando...")
-    
-    # Ejecutar verificación con los datos ingresados
-    verificar_consistencia(lam_local_ejemplo, lam_visitante_ejemplo, line=linea_ingresada, rho=rho_ingresado)
-    
-    # Prueba sin corrección (Poisson puro)
+    st.table(tabla_datos)
     verificar_consistencia(lam_local_ejemplo, lam_visitante_ejemplo, line=2.5, rho=0.0)
     
     # Prueba con corrección Dixon-Coles
